@@ -159,20 +159,48 @@ impl Injector {
     }
 
     fn get_user_scripts(&self) -> Vec<UserScript> {
-        let scripts: Vec<UserScript> = self
-            .config
-            .script
-            .iter()
-            .map(|s| {
-                let content =
-                    fs::read_to_string(s).expect("Should have been able to read the file");
+        let mut scripts = Vec::new();
 
-                UserScript {
-                    file_path: s.to_string(),
-                    content,
+        for script_arg in &self.config.script {
+            let path = std::path::Path::new(script_arg);
+
+            if path.is_dir() {
+                // 如果是目录，遍历并加载其中的 .js 文件
+                if let Ok(entries) = fs::read_dir(path) {
+                    for entry in entries {
+                        if let Ok(entry) = entry {
+                            let entry_path = entry.path();
+                            // 检查是否为文件且扩展名为 js
+                            if entry_path.is_file() && entry_path.extension().map_or(false, |ext| ext == "js") {
+                                match fs::read_to_string(&entry_path) {
+                                    Ok(content) => {
+                                        info!("Found script in directory: {:?}", entry_path);
+                                        scripts.push(UserScript {
+                                            file_path: entry_path.to_string_lossy().to_string(),
+                                            content,
+                                        });
+                                    }
+                                    Err(e) => {
+                                        warn!("Failed to read file {:?}: {}", entry_path, e);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    warn!("Failed to read directory: {:?}", path);
                 }
-            })
-            .collect();
+            } else {
+                // 如果是单个文件，保持原有逻辑
+                let content =
+                    fs::read_to_string(script_arg).expect("Should have been able to read the file");
+
+                scripts.push(UserScript {
+                    file_path: script_arg.to_string(),
+                    content,
+                });
+            }
+        }
 
         scripts
     }

@@ -16,17 +16,19 @@ $ cargo install electron-injector
 
 ### Usage
 
-To use `electron-injector`, simply specify the path to the Electron app and the JavaScript file that you want to inject.
+To use `electron-injector`, simply specify the path to the Electron app and the JavaScript file or directory that you want to inject.
 
 ```bash
 $ electron-injector --script=/path/to/script.js /path/to/electron/app
+# Or inject all .js files from a directory
+$ electron-injector --script=/path/to/scripts_dir /path/to/electron/app
 ```
 
 ### Options
 
 ```
 -a, --arg <ARG>          Additional arg for the electron app
--s, --script <SCRIPT>    Path to the javascript file to be injected    
+-s, --script <SCRIPT>    Path to the javascript file or directory to be injected    
     --host <HOST>        The remote debugging host [default: 127.0.0.1]
 -p, --port <PORT>        The remote debugging port [default: 8315]     
 -t, --timeout <TIMEOUT>  Timeout in ms for injecting scripts [default: 10000]

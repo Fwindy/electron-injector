@@ -30,7 +30,7 @@ pub struct Config {
     #[arg(short, long)]
     pub arg: Vec<String>,
 
-    /// Path to the javascript file to be injected
+    /// Path to the javascript file or directory to be injected
     #[arg(short, long)]
     pub script: Vec<String>,
 
