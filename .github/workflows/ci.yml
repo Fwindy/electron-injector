@@ -23,16 +23,11 @@ jobs:
           - os_name: Linux
             os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-          - os_name: macOS
-            os: macOS-latest
-            target: x86_64-apple-darwin
           - os_name: Windows
             os: windows-latest
             target: x86_64-pc-windows-msvc
         toolchain:
           - stable
-          - beta
-          - nightly
     steps:
       - uses: actions/checkout@v3
       - name: Cache cargo & target directories
@@ -46,10 +41,12 @@ jobs:
         run: |
           git config --global user.email "jdoe@example.com"
           git config --global user.name "J. Doe"
+      - name: Update dependencies
+        run: cargo update
       - name: Run cargo check
-        run: cargo check --workspace --locked --target=${{ matrix.platform.target }}
+        run: cargo check --workspace --target=${{ matrix.platform.target }}
       - name: Run cargo test
-        run: cargo test --workspace --locked --target=${{ matrix.platform.target }}
+        run: cargo test --workspace --target=${{ matrix.platform.target }}
 
   release:
     name: Release - ${{ matrix.platform.release_for }}
@@ -166,18 +163,6 @@ jobs:
             bin: electron-injector.exe
             name: electron-injector-Windows-x86_64.zip
 
-          - release_for: macOS-x86_64
-            os: macOS-latest
-            target: x86_64-apple-darwin
-            bin: electron-injector
-            name: electron-injector-Darwin-x86_64.tar.gz
-
-          - release_for: macOS-aarch64
-            os: macOS-latest
-            target: aarch64-apple-darwin
-            bin: electron-injector
-            name: electron-injector-Darwin-aarch64.tar.gz
-
     runs-on: ${{ matrix.platform.os }}
     steps:
       - name: Checkout
@@ -186,7 +171,7 @@ jobs:
         uses: houseabsolute/actions-rust-cross@v0
         with:
           target: ${{ matrix.platform.target }}
-          args: "--locked --release"
+          args: "--release"
           strip: true
       - name: Package as archive
         shell: bash
@@ -198,9 +183,6 @@ jobs:
             tar czvf ../../../${{ matrix.platform.name }} ${{ matrix.platform.bin }}
           fi
           cd -
-      - name: Generate SHA-256
-        if: matrix.platform.os == 'macOS-latest'
-        run: shasum -a 256 ${{ matrix.platform.name }}
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v1
         with:

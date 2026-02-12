@@ -218,8 +218,9 @@ impl Injector {
     fn evaluate(&self, ws: &mut WebSocket, expression: &str) -> Result<()> {
         // Create payload
         // https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#method-evaluate
+        let request_id = 1;
         let payload = json!({
-            "id": 1,
+            "id": request_id,
             "method": "Runtime.evaluate",
             "params": {
                 "expression": expression,
@@ -234,36 +235,46 @@ impl Injector {
         // Serialize payload to JSON
         let payload_json = serde_json::to_string(&payload)?;
 
-        // Send message and get the result
-        let result_msg = ws.send_and_receive(&payload_json)?;
-        debug!("[Runtime.evaluate] Raw message: {:#?}", result_msg);
+        // Send message
+        ws.send(&payload_json)?;
 
-        // Ignore if not a text
-        if !result_msg.is_text() {
-            warn!(
-                "[Runtime.evaluate] Unexpected result from WebSocket: {:#?}",
-                result_msg
-            );
-            return Ok(());
+        loop {
+            // Read next message
+            let msg = ws.receive()?;
+
+            // Ignore if not a text
+            if !msg.is_text() {
+                debug!("[Runtime.evaluate] Ignoring non-text message: {:#?}", msg);
+                continue;
+            }
+
+            let text = msg.to_text()?;
+            
+            // Parse as generic Value first to check for ID without crashing
+            let v: serde_json::Value = serde_json::from_str(text)?;
+
+            // Check if this message corresponds to our request ID
+            if let Some(id) = v.get("id").and_then(|id| id.as_i64()) {
+                if id == request_id as i64 {
+                    // This is our response, parse specifically as EvaluateResponse
+                    let response: EvaluateResponse = serde_json::from_value(v)?;
+                    
+                    debug!("[Runtime.evaluate] Parsed response: {:#?}", response);
+
+                    // Handle exception
+                    if response.result.exception_details.is_some() {
+                        warn!(
+                            "[Runtime.evaluate] Caught exception while evaluating script: {:#?}",
+                            response
+                        );
+                    }
+                    return Ok(());
+                }
+            }
+
+            // If we are here, it was an event or a response to a different ID.
+            // In a real app you might want to log this or handle events.
+            debug!("[Runtime.evaluate] Ignoring message (likely an event): {}", text);
         }
-
-        // Convert message to text
-        let result_json = result_msg.to_text()?;
-
-        // Parse response
-        let response: EvaluateResponse = serde_json::from_str(result_json)?;
-
-        debug!("[Runtime.evaluate] Parsed response: {:#?}", response);
-
-        // Handle exception
-        if response.result.exception_details.is_some() {
-            warn!(
-                "[Runtime.evaluate] Caught exception while evaluating script: {:#?}",
-                response
-            );
-            return Ok(());
-        }
-
-        Ok(())
     }
 }
